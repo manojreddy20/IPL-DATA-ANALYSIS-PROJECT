@@ -1,0 +1,341 @@
+#IPL ANALYSIS by K.NAGUR,K.NAGA VAMSI MANIKANTA REDDY,P.SAI MANOJ.
+
+#importing library files
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import plotly.graph_objs as go
+from plotly.offline import init_notebook_mode, plot, iplot
+from plotly import tools
+from warnings import filterwarnings
+
+#READ THE DATASETS
+deliveries_data = pd.read_csv('IPL Ball-by-Ball 2008-2020.csv')
+match_data = pd.read_csv('IPL Matches 2008-2020.csv')
+print("Data ready for exploration")
+
+#OVERVIEW OF ALL SEASONS
+print('Total Matches Played:',match_data.shape[0])
+print(' \n Venues Played At:',match_data['city'].unique())     
+print(' \n Teams :',match_data['team1'].unique())
+match_data['Season'] = pd.DatetimeIndex(match_data['date']).year
+match_data['Season'] = pd.DatetimeIndex(match_data['date']).year
+
+#OVERVIEW IN SEASONWISE
+match_per_season=match_data.groupby(['Season'])['id'].count().reset_index().rename(columns={'id':'matches'})
+match_per_season.style.background_gradient(cmap='PuBu')
+
+#WINNING TOSS IMPLIES WINNING GAME?
+
+match_data['toss_win_game_win'] = np.where((match_data.toss_winner == match_data.winner),'Yes','No')
+match_data.head()
+labels =["Yes",'No']
+values = match_data['toss_win_game_win'].value_counts()
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,
+                             values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='label+percent', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Winning toss implies winning macthes?",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+temp_series = match_data.toss_decision.value_counts()
+labels = (np.array(temp_series.index))
+values = (np.array((temp_series / temp_series.sum())*100))
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,
+                             values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='label+percent', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Toss decision percentage",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+match_data['result'].value_counts()
+
+#WINNER OF IPL
+
+winning_teams = match_data[['Season','winner']]
+
+#dictionaries to get winners to each season
+winners_team = {}
+for i in sorted(winning_teams.Season.unique()):
+    winners_team[i] = winning_teams[winning_teams.Season == i]['winner'].tail(1).values[0]
+    
+winners_of_IPL = pd.Series(winners_team)
+winners_of_IPL = pd.DataFrame(winners_of_IPL, columns=['team'])
+colors = ['turquoise',] * 6
+colors[0] = 'crimson'
+fig=px.bar( y=winners_of_IPL['team'].value_counts(),x=winners_of_IPL['team'].value_counts().index,
+             labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Winners of IPL",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+
+#PERCENTAGE OF WINNING MATCHES
+
+matches_played_byteams=pd.concat([match_data['team1'],match_data['team2']],axis=1)
+teams=(matches_played_byteams['team1'].value_counts()+matches_played_byteams['team2'].value_counts()).reset_index()
+teams.columns=['Team Name','Total Matches played']
+teams.sort_values(by=['Total Matches played'],ascending=False).reset_index().drop('index',axis=1).style.background_gradient(cmap='PuBu')
+wins=pd.DataFrame(match_data['winner'].value_counts()).reset_index()
+wins.columns=['Team Name','Wins']
+wins.style.background_gradient(cmap='PuBu')
+played=teams.merge(wins,left_on='Team Name',right_on='Team Name',how='inner')
+played['% Win']=(played['Wins']/played['Total Matches played'])*100
+played.sort_values(by=['% Win'],ascending=False).reset_index().drop('index',axis=1).style.background_gradient(cmap='PuBu',subset=['% Win'])
+
+#BAR GRAPH OF NUMBER OF MATCHES WIN BY TEAM
+
+colors = ['turquoise',] * 15
+colors[8] = 'crimson'
+fig=px.bar(x=played['Team Name'],y=played['Total Matches played'],labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Total number of matches played",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+colors = ['turquoise',] * 15
+colors[8] = 'crimson'
+fig=px.bar(x=played['Team Name'],y=played['Wins'],labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Total Win by teams",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+colors = ['turquoise',] * 15
+colors[-4] = 'crimson'
+fig=px.bar(x=played['Team Name'],y=played['% Win'],labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Win % by teams",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+
+#LUCKY VENUES OF TEAMS
+
+#FUNCTION OF LUCKY
+def lucky(match_data,team_name):
+    return match_data[match_data['winner']==team_name]['venue'].value_counts().nlargest(10)
+mi=lucky(match_data,'Mumbai Indians')
+values = mi
+labels=mi.index
+
+#COLOR INDICATION
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Wins at different Venues for MI:",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+rcb=lucky(match_data,'Royal Challengers Bangalore')
+values = rcb
+labels=rcb.index
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Wins at different Venues for RCB:",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+csk=lucky(match_data,'Chennai Super Kings')
+values = csk
+labels=csk.index
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Wins at different Venues for CSK:",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+csk=lucky(match_data,'Kolkata Knight Riders')
+values = csk
+labels=csk.index
+colors = ['turquoise', 'crimson']
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Wins at different Venues for KKR:",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+
+#UMPIRES OF IPL AND MATCHES
+ump=pd.concat([match_data['umpire1'],match_data['umpire2']])
+ump=ump.value_counts()
+umps=ump.to_frame().reset_index()
+ump.head(10)
+
+#MOST PLAYER OF THE MATCHES
+
+plt.figure(figsize=(8,5))
+plt.bar(list(match_data['player_of_match'].value_counts()[0:5].keys()),
+        list(match_data['player_of_match'].value_counts()[0:5]))
+plt.show()
+
+
+#runs by virat kohli
+filt=(deliveries_data['batsman']=='V Kohli')
+df_kohli=deliveries_data[filt]
+df_kohli.head()
+
+#runs by virat kohli
+
+filt=(deliveries_data['batsman']=='V Kohli')
+df_kohli=deliveries_data[filt]
+print(len(df_kohli[df_kohli['batsman_runs']==4]))
+print(len(df_kohli[df_kohli['batsman_runs']==6]))
+print(df_kohli['total_runs'].sum())
+def count(df_kohli,runs):
+    return len(df_kohli[df_kohli['batsman_runs']==runs])*runs
+print("Runs scored from 1's :",count(df_kohli,1))
+print("Runs scored from 2's :",count(df_kohli,2))
+print("Runs scored from 3's :",count(df_kohli,3))
+print("Runs scored from 4's :",count(df_kohli,4))
+print("Runs scored from 6's :",count(df_kohli,6))
+
+#virat kohli total runs contribution in pie chart
+
+values=[1919,692,39,2016,1212]
+labels=[1,2,3,4,6]
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='label+value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Virat Kohli total runs contribution",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+
+#virat kohli total runs contribution
+
+values=[1919,692,39,2016,1212]
+labels=[1,2,3,4,6]
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='label+value', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Virat Kohli total runs contribution",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+
+#virat kohli dismissal type
+values = df_kohli['dismissal_kind'].value_counts()
+labels=df_kohli['dismissal_kind'].value_counts().index
+fig = go.Figure(data=[go.Pie(labels=labels,values=values,hole=.3)])
+fig.update_traces(hoverinfo='label+percent', textinfo='label', textfont_size=20,
+                  marker=dict(colors=colors, line=dict(color='#000000', width=3)))
+fig.update_layout(title="Dismissal Type",
+                  titlefont={'size': 30},
+                  )
+fig.show()
+
+#most balls played by a batsman
+balls_played=deliveries_data.groupby(['batsman'])['ball'].count().reset_index()
+balls_played.sort_values(by='ball',ascending=False).head(10).style.background_gradient(cmap='PuBu')
+
+#top 10 leading run scorer of all time
+
+runs=deliveries_data.groupby(['batsman'])['batsman_runs'].sum().reset_index()
+runs.columns=['Batsman','runs']
+y=runs.sort_values(by='runs',ascending=False).head(10).reset_index().drop('index',axis=1)
+y.style.background_gradient(cmap='PuBu')
+colors = ['turquoise',] * 13
+colors[0] = 'crimson'
+fig=px.bar(x=y['Batsman'],y=y['runs'],labels=dict(x="Player",y="Total Runs"),)
+fig.update_layout(title="Top 10 leading run-scrorer",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+
+#most 4's
+balls_played=balls_played.merge(runs,left_on='batsman',right_on='Batsman',how='outer')
+four=deliveries_data[deliveries_data['batsman_runs']==4]
+runs_4=four.groupby('batsman')['batsman_runs'].count().reset_index()
+runs_4.columns=['Batsman','4s']
+runs_4.sort_values(by='4s',ascending=False).head(10).reset_index().drop('index',axis=1).style.background_gradient(cmap='PuBu')
+
+#most 6's
+
+six=deliveries_data.groupby('batsman')['batsman_runs'].agg(lambda x: (x==6).sum()).reset_index()
+six.columns=['Batsman','6s']
+six.sort_values(by='6s',ascending=False).head(10).reset_index().drop('index',axis=1).style.background_gradient(cmap='PuBu')
+
+#innings wise comparision batting first and second
+runs=deliveries_data.groupby(['id','inning','batting_team'])[['total_runs']].sum().reset_index()
+runs.drop('id',axis=1,inplace=True)
+inning1=runs[runs['inning']==1]
+inning2=runs[runs['inning']==2]
+fig = px.box(y='total_runs',x='batting_team',data_frame=inning1,color='batting_team')
+
+fig.update_layout(title="Batting First",
+                  titlefont={'size': 26},template='simple_white'
+                  )
+fig.show()
+fig = px.box(y='total_runs',x='batting_team',data_frame=inning2,color='batting_team')
+
+fig.update_layout(title="Batting Second",
+                  titlefont={'size': 26},template='simple_white'
+                  )
+fig.show()
+
+
+#scored 200+ runs
+
+high_scores=deliveries_data.groupby(['id', 'inning','batting_team','bowling_team'])['total_runs'].sum().reset_index() 
+score_200=high_scores[high_scores['total_runs']>=200]
+x1=score_200['batting_team'].value_counts()
+x1=pd.DataFrame(x1)
+x1.style.background_gradient(cmap='PuBu')
+
+
+colors = ['turquoise',] * 11
+colors[0] = 'crimson'
+fig=px.bar(x=x1.index,y=x1['batting_team'],labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Total count of 200+ by batting team",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+
+#conceeded 200+ by bowling team
+z=score_200['bowling_team'].value_counts()
+z=pd.DataFrame(z)
+z.style.background_gradient(cmap='PuBu')
+
+colors = ['turquoise',] * 13
+colors[0] = 'crimson'
+fig=px.bar(x=z.index,y=z['bowling_team'],labels=dict(x="Team Name",y="Count"),)
+fig.update_layout(title="Total count of 200+ conceded by bowling team",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
+
+#total no of matches played in different venues
+colors = ['turquoise',] * 13
+colors[0] = 'crimson'
+fig=px.bar(x=match_data['venue'].value_counts()[:10].index,y=match_data['venue'].value_counts()[:10],
+           labels=dict(x="Venue",y="Match count"),)
+fig.update_layout(title="Matches played at different stadiums",
+                  titlefont={'size': 26},template='simple_white'     
+                  )
+fig.update_traces(marker_line_color='black',
+                  marker_line_width=2.5, opacity=1,marker_color=colors)
+fig.show()
